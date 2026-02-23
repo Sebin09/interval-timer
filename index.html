@@ -1,112 +1,115 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Interval Timer</title>
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#0f0f0f">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interval Timer</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f0f0f">
 
-  <style>
-    body {
-      margin: 0;
-      font-family: 'Segoe UI', sans-serif;
-      background: linear-gradient(180deg, #0f0f0f, #1c1c1c);
-      color: white;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-    }
+<style>
+body {
+  margin: 0;
+  font-family: 'Segoe UI', sans-serif;
+  background: linear-gradient(180deg, #0f0f0f, #1a1a1a);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
 
-    h1 {
-      font-size: 20px;
-      opacity: 0.7;
-      letter-spacing: 2px;
-    }
+#phase {
+  font-size: 28px;
+  letter-spacing: 2px;
+  margin-bottom: 10px;
+}
 
-    #phase {
-      font-size: 32px;
-      font-weight: bold;
-      margin-top: 20px;
-      text-transform: uppercase;
-      letter-spacing: 3px;
-    }
+#time {
+  font-size: 90px;
+  font-weight: bold;
+  margin: 10px 0 30px 0;
+}
 
-    #time {
-      font-size: 90px;
-      font-weight: 800;
-      margin: 20px 0;
-    }
+.buttons {
+  display: flex;
+  gap: 15px;
+}
 
-    button {
-      padding: 15px 50px;
-      font-size: 20px;
-      border-radius: 50px;
-      border: none;
-      background: #00ff88;
-      color: black;
-      font-weight: bold;
-      box-shadow: 0 0 20px #00ff88aa;
-    }
+button {
+  padding: 12px 30px;
+  font-size: 18px;
+  border-radius: 40px;
+  border: none;
+  font-weight: bold;
+}
 
-    button:active {
-      transform: scale(0.95);
-    }
-  </style>
+.start { background: #00ff88; color: black; }
+.pause { background: #ffaa00; color: black; }
+.stop  { background: #ff4444; color: white; }
+
+button:active { transform: scale(0.95); }
+</style>
 </head>
 <body>
 
-<h1>INTERVAL TRAINING</h1>
 <div id="phase">Ready</div>
 <div id="time">00:00</div>
-<button onclick="startTimer()">START</button>
+
+<div class="buttons">
+  <button class="start" onclick="startTimer()">Start</button>
+  <button class="pause" onclick="pauseTimer()">Pause</button>
+  <button class="stop" onclick="stopTimer()">Stop</button>
+</div>
 
 <script>
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js');
 }
 
-let phases = [
+const phases = [
   { name: "Walk", duration: 90 },
   { name: "Run", duration: 60 },
   { name: "Sprint", duration: 30 }
 ];
 
-let totalWorkoutTime = 30 * 60;
-let elapsedTime = 0;
-let phaseIndex = 0;
-let countdown;
-let timeLeft;
+const totalWorkoutTime = 30 * 60;
 
-function speak(text) {
-  let speech = new SpeechSynthesisUtterance(text);
-  speech.rate = 1;
-  speech.pitch = 1;
-  speech.volume = 1;
-  window.speechSynthesis.speak(speech);
-}
+let elapsed = 0;
+let phaseIndex = 0;
+let phaseTimeLeft = 0;
+let timer = null;
+let running = false;
 
 function beep() {
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
-  const oscillator = ctx.createOscillator();
-  oscillator.type = "square";
-  oscillator.frequency.setValueAtTime(900, ctx.currentTime);
-  oscillator.connect(ctx.destination);
-  oscillator.start();
-  oscillator.stop(ctx.currentTime + 0.15);
+  const osc = ctx.createOscillator();
+  osc.type = "square";
+  osc.frequency.setValueAtTime(900, ctx.currentTime);
+  osc.connect(ctx.destination);
+  osc.start();
+  osc.stop(ctx.currentTime + 0.15);
+}
+
+function speak(text) {
+  const speech = new SpeechSynthesisUtterance(text);
+  speech.rate = 1;
+  speech.pitch = 1;
+  window.speechSynthesis.speak(speech);
 }
 
 function updateDisplay() {
-  let minutes = Math.floor(timeLeft / 60);
-  let seconds = timeLeft % 60;
+  const m = Math.floor(phaseTimeLeft / 60);
+  const s = phaseTimeLeft % 60;
   document.getElementById("time").textContent =
-    String(minutes).padStart(2, '0') + ":" +
-    String(seconds).padStart(2, '0');
+    String(m).padStart(2, '0') + ":" +
+    String(s).padStart(2, '0');
 }
 
-function startPhase() {
-  if (elapsedTime >= totalWorkoutTime) {
+function nextPhase() {
+  if (elapsed >= totalWorkoutTime) {
+    clearInterval(timer);
+    running = false;
     document.getElementById("phase").textContent = "Complete";
     document.getElementById("time").textContent = "00:00";
     beep();
@@ -114,180 +117,54 @@ function startPhase() {
     return;
   }
 
-  let currentPhase = phases[phaseIndex];
-  timeLeft = currentPhase.duration;
-  document.getElementById("phase").textContent = currentPhase.name;
+  const current = phases[phaseIndex];
+  phaseTimeLeft = current.duration;
+
+  document.getElementById("phase").textContent = current.name;
+  beep();
+  speak(current.name);
+
+  phaseIndex = (phaseIndex + 1) % phases.length;
+}
+
+function tick() {
+  if (!running) return;
+
+  phaseTimeLeft--;
+  elapsed++;
+
   updateDisplay();
 
-  beep();
-  speak(currentPhase.name);
-
-  countdown = setInterval(() => {
-    timeLeft--;
-    elapsedTime++;
-    updateDisplay();
-
-    if (timeLeft <= 0) {
-      clearInterval(countdown);
-      phaseIndex = (phaseIndex + 1) % phases.length;
-      startPhase();
-    }
-  }, 1000);
+  if (phaseTimeLeft <= 0) {
+    nextPhase();
+  }
 }
 
 function startTimer() {
-  elapsedTime = 0;
-  phaseIndex = 0;
-  beep();
-  speak("Starting workout");
-  startPhase();
-}
-</script>
+  if (running) return;
 
-</body>
-</html><!DOCTYPE html>
-<html>
-<head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Interval Timer</title>
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#0f0f0f">
+  running = true;
 
-  <style>
-    body {
-      margin: 0;
-      font-family: 'Segoe UI', sans-serif;
-      background: linear-gradient(180deg, #0f0f0f, #1c1c1c);
-      color: white;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-    }
-
-    h1 {
-      font-size: 20px;
-      opacity: 0.7;
-      letter-spacing: 2px;
-    }
-
-    #phase {
-      font-size: 32px;
-      font-weight: bold;
-      margin-top: 20px;
-      text-transform: uppercase;
-      letter-spacing: 3px;
-    }
-
-    #time {
-      font-size: 90px;
-      font-weight: 800;
-      margin: 20px 0;
-    }
-
-    button {
-      padding: 15px 50px;
-      font-size: 20px;
-      border-radius: 50px;
-      border: none;
-      background: #00ff88;
-      color: black;
-      font-weight: bold;
-      box-shadow: 0 0 20px #00ff88aa;
-    }
-
-    button:active {
-      transform: scale(0.95);
-    }
-  </style>
-</head>
-<body>
-
-<h1>INTERVAL TRAINING</h1>
-<div id="phase">Ready</div>
-<div id="time">00:00</div>
-<button onclick="startTimer()">START</button>
-
-<script>
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js');
-}
-
-let phases = [
-  { name: "Walk", duration: 90 },
-  { name: "Run", duration: 60 },
-  { name: "Sprint", duration: 30 }
-];
-
-let totalWorkoutTime = 30 * 60;
-let elapsedTime = 0;
-let phaseIndex = 0;
-let countdown;
-let timeLeft;
-
-function speak(text) {
-  let speech = new SpeechSynthesisUtterance(text);
-  speech.rate = 1;
-  speech.pitch = 1;
-  speech.volume = 1;
-  window.speechSynthesis.speak(speech);
-}
-
-function beep() {
-  const ctx = new (window.AudioContext || window.webkitAudioContext)();
-  const oscillator = ctx.createOscillator();
-  oscillator.type = "square";
-  oscillator.frequency.setValueAtTime(900, ctx.currentTime);
-  oscillator.connect(ctx.destination);
-  oscillator.start();
-  oscillator.stop(ctx.currentTime + 0.15);
-}
-
-function updateDisplay() {
-  let minutes = Math.floor(timeLeft / 60);
-  let seconds = timeLeft % 60;
-  document.getElementById("time").textContent =
-    String(minutes).padStart(2, '0') + ":" +
-    String(seconds).padStart(2, '0');
-}
-
-function startPhase() {
-  if (elapsedTime >= totalWorkoutTime) {
-    document.getElementById("phase").textContent = "Complete";
-    document.getElementById("time").textContent = "00:00";
-    beep();
-    speak("Workout complete");
-    return;
+  if (elapsed === 0) {
+    phaseIndex = 0;
+    nextPhase();
   }
 
-  let currentPhase = phases[phaseIndex];
-  timeLeft = currentPhase.duration;
-  document.getElementById("phase").textContent = currentPhase.name;
-  updateDisplay();
-
-  beep();
-  speak(currentPhase.name);
-
-  countdown = setInterval(() => {
-    timeLeft--;
-    elapsedTime++;
-    updateDisplay();
-
-    if (timeLeft <= 0) {
-      clearInterval(countdown);
-      phaseIndex = (phaseIndex + 1) % phases.length;
-      startPhase();
-    }
-  }, 1000);
+  timer = setInterval(tick, 1000);
 }
 
-function startTimer() {
-  elapsedTime = 0;
+function pauseTimer() {
+  running = false;
+}
+
+function stopTimer() {
+  clearInterval(timer);
+  running = false;
+  elapsed = 0;
   phaseIndex = 0;
-  beep();
-  speak("Starting workout");
-  startPhase();
+  phaseTimeLeft = 0;
+  document.getElementById("phase").textContent = "Ready";
+  document.getElementById("time").textContent = "00:00";
 }
 </script>
 
