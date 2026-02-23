@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interval Timer</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f0f0f">
+
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(180deg, #0f0f0f, #1c1c1c);
+      color: white;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    h1 {
+      font-size: 20px;
+      opacity: 0.7;
+      letter-spacing: 2px;
+    }
+
+    #phase {
+      font-size: 32px;
+      font-weight: bold;
+      margin-top: 20px;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+    }
+
+    #time {
+      font-size: 90px;
+      font-weight: 800;
+      margin: 20px 0;
+    }
+
+    button {
+      padding: 15px 50px;
+      font-size: 20px;
+      border-radius: 50px;
+      border: none;
+      background: #00ff88;
+      color: black;
+      font-weight: bold;
+      box-shadow: 0 0 20px #00ff88aa;
+    }
+
+    button:active {
+      transform: scale(0.95);
+    }
+  </style>
+</head>
+<body>
+
+<h1>INTERVAL TRAINING</h1>
+<div id="phase">Ready</div>
+<div id="time">00:00</div>
+<button onclick="startTimer()">START</button>
+
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js');
+}
+
+let phases = [
+  { name: "Walk", duration: 90 },
+  { name: "Run", duration: 60 },
+  { name: "Sprint", duration: 30 }
+];
+
+let totalWorkoutTime = 30 * 60;
+let elapsedTime = 0;
+let phaseIndex = 0;
+let countdown;
+let timeLeft;
+
+function speak(text) {
+  let speech = new SpeechSynthesisUtterance(text);
+  speech.rate = 1;
+  speech.pitch = 1;
+  speech.volume = 1;
+  window.speechSynthesis.speak(speech);
+}
+
+function beep() {
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const oscillator = ctx.createOscillator();
+  oscillator.type = "square";
+  oscillator.frequency.setValueAtTime(900, ctx.currentTime);
+  oscillator.connect(ctx.destination);
+  oscillator.start();
+  oscillator.stop(ctx.currentTime + 0.15);
+}
+
+function updateDisplay() {
+  let minutes = Math.floor(timeLeft / 60);
+  let seconds = timeLeft % 60;
+  document.getElementById("time").textContent =
+    String(minutes).padStart(2, '0') + ":" +
+    String(seconds).padStart(2, '0');
+}
+
+function startPhase() {
+  if (elapsedTime >= totalWorkoutTime) {
+    document.getElementById("phase").textContent = "Complete";
+    document.getElementById("time").textContent = "00:00";
+    beep();
+    speak("Workout complete");
+    return;
+  }
+
+  let currentPhase = phases[phaseIndex];
+  timeLeft = currentPhase.duration;
+  document.getElementById("phase").textContent = currentPhase.name;
+  updateDisplay();
+
+  beep();
+  speak(currentPhase.name);
+
+  countdown = setInterval(() => {
+    timeLeft--;
+    elapsedTime++;
+    updateDisplay();
+
+    if (timeLeft <= 0) {
+      clearInterval(countdown);
+      phaseIndex = (phaseIndex + 1) % phases.length;
+      startPhase();
+    }
+  }, 1000);
+}
+
+function startTimer() {
+  elapsedTime = 0;
+  phaseIndex = 0;
+  beep();
+  speak("Starting workout");
+  startPhase();
+}
+</script>
+
+</body>
+</html><!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interval Timer</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f0f0f">
+
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(180deg, #0f0f0f, #1c1c1c);
+      color: white;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    h1 {
+      font-size: 20px;
+      opacity: 0.7;
+      letter-spacing: 2px;
+    }
+
+    #phase {
+      font-size: 32px;
+      font-weight: bold;
+      margin-top: 20px;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+    }
+
+    #time {
+      font-size: 90px;
+      font-weight: 800;
+      margin: 20px 0;
+    }
+
+    button {
+      padding: 15px 50px;
+      font-size: 20px;
+      border-radius: 50px;
+      border: none;
+      background: #00ff88;
+      color: black;
+      font-weight: bold;
+      box-shadow: 0 0 20px #00ff88aa;
+    }
+
+    button:active {
+      transform: scale(0.95);
+    }
+  </style>
+</head>
+<body>
+
+<h1>INTERVAL TRAINING</h1>
+<div id="phase">Ready</div>
+<div id="time">00:00</div>
+<button onclick="startTimer()">START</button>
+
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js');
+}
+
+let phases = [
+  { name: "Walk", duration: 90 },
+  { name: "Run", duration: 60 },
+  { name: "Sprint", duration: 30 }
+];
+
+let totalWorkoutTime = 30 * 60;
+let elapsedTime = 0;
+let phaseIndex = 0;
+let countdown;
+let timeLeft;
+
+function speak(text) {
+  let speech = new SpeechSynthesisUtterance(text);
+  speech.rate = 1;
+  speech.pitch = 1;
+  speech.volume = 1;
+  window.speechSynthesis.speak(speech);
+}
+
+function beep() {
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const oscillator = ctx.createOscillator();
+  oscillator.type = "square";
+  oscillator.frequency.setValueAtTime(900, ctx.currentTime);
+  oscillator.connect(ctx.destination);
+  oscillator.start();
+  oscillator.stop(ctx.currentTime + 0.15);
+}
+
+function updateDisplay() {
+  let minutes = Math.floor(timeLeft / 60);
+  let seconds = timeLeft % 60;
+  document.getElementById("time").textContent =
+    String(minutes).padStart(2, '0') + ":" +
+    String(seconds).padStart(2, '0');
+}
+
+function startPhase() {
+  if (elapsedTime >= totalWorkoutTime) {
+    document.getElementById("phase").textContent = "Complete";
+    document.getElementById("time").textContent = "00:00";
+    beep();
+    speak("Workout complete");
+    return;
+  }
+
+  let currentPhase = phases[phaseIndex];
+  timeLeft = currentPhase.duration;
+  document.getElementById("phase").textContent = currentPhase.name;
+  updateDisplay();
+
+  beep();
+  speak(currentPhase.name);
+
+  countdown = setInterval(() => {
+    timeLeft--;
+    elapsedTime++;
+    updateDisplay();
+
+    if (timeLeft <= 0) {
+      clearInterval(countdown);
+      phaseIndex = (phaseIndex + 1) % phases.length;
+      startPhase();
+    }
+  }, 1000);
+}
+
+function startTimer() {
+  elapsedTime = 0;
+  phaseIndex = 0;
+  beep();
+  speak("Starting workout");
+  startPhase();
+}
+</script>
+
+</body>
+</html>
